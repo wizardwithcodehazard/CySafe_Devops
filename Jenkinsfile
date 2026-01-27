@@ -63,7 +63,7 @@ pipeline {
         always {
             script {
                 // Change this email address to your own
-                def toEmail = "sahil@example.com" 
+                def toEmail = "sahilrane249@gmail.com" 
                 
                 mail to: toEmail,
                      subject: "Jenkins Build ${currentBuild.currentResult}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
