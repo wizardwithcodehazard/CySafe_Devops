@@ -2,14 +2,14 @@ import React from 'react';
 import { Shield, Search, Award, Smartphone, AlertTriangle } from 'lucide-react';
 import AlertCard from '../components/AlertCard';
 
-export default function Dashboard({ setActiveTab, isDark }) {
+export default function Dashboard({ setActiveTab }) {
   return (
     <div className="p-6 space-y-6 pb-24 animate-fadeIn">
-      
+
       {/* Risk Thermometer */}
       <div className="relative w-full h-48 bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2rem] overflow-hidden shadow-2xl p-6 text-white group cursor-pointer transition-transform hover:scale-[1.01]">
         <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/20 blur-[50px] rounded-full -mr-10 -mt-10 group-hover:bg-cyan-500/30 transition-all duration-500"></div>
-        
+
         <div className="flex justify-between items-start relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -19,11 +19,11 @@ export default function Dashboard({ setActiveTab, isDark }) {
             <h3 className="text-3xl font-bold tracking-tight">Low Risk</h3>
           </div>
           <div className="relative w-14 h-14 flex items-center justify-center">
-             <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36">
-                <path className="text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                <path className="text-green-500 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeDasharray="98, 100" strokeWidth="3" />
-             </svg>
-             <span className="font-bold text-sm">98%</span>
+            <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36">
+              <path className="text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+              <path className="text-green-500 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeDasharray="98, 100" strokeWidth="3" />
+            </svg>
+            <span className="font-bold text-sm">98%</span>
           </div>
         </div>
 
@@ -40,7 +40,7 @@ export default function Dashboard({ setActiveTab, isDark }) {
 
       {/* Action Grid */}
       <div className="grid grid-cols-2 gap-4">
-        <button 
+        <button
           onClick={() => setActiveTab('scan')}
           className="bg-white dark:bg-slate-900/50 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 flex flex-col items-center gap-3 hover:border-cyan-500 dark:hover:border-cyan-500 hover:shadow-lg transition-all group backdrop-blur-sm"
         >
@@ -53,7 +53,7 @@ export default function Dashboard({ setActiveTab, isDark }) {
           </div>
         </button>
 
-        <button 
+        <button
           onClick={() => setActiveTab('learn')}
           className="bg-white dark:bg-slate-900/50 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 flex flex-col items-center gap-3 hover:border-purple-500 dark:hover:border-purple-500 hover:shadow-lg transition-all group backdrop-blur-sm"
         >
@@ -66,7 +66,7 @@ export default function Dashboard({ setActiveTab, isDark }) {
           </div>
         </button>
 
-        <button 
+        <button
           onClick={() => setActiveTab('sim')}
           className="bg-white dark:bg-slate-900/50 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 flex flex-col items-center gap-3 hover:border-red-500 dark:hover:border-red-500 hover:shadow-lg transition-all group backdrop-blur-sm"
         >
@@ -84,16 +84,16 @@ export default function Dashboard({ setActiveTab, isDark }) {
       <div>
         <h3 className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-4 pl-1">Live Intelligence</h3>
         <div className="space-y-3">
-          <AlertCard 
-            type="urgent" 
-            title="Pune Techie Scam Variant" 
-            desc="New WhatsApp group 'Bull Run 2025' active. Promises 400% returns." 
+          <AlertCard
+            type="urgent"
+            title="Pune Techie Scam Variant"
+            desc="New WhatsApp group 'Bull Run 2025' active. Promises 400% returns."
             time="10m ago"
           />
-           <AlertCard 
-            type="info" 
-            title="Deepfake CEO Videos" 
-            desc="AI videos of top CEOs circulating on Instagram Reels." 
+          <AlertCard
+            type="info"
+            title="Deepfake CEO Videos"
+            desc="AI videos of top CEOs circulating on Instagram Reels."
             time="2h ago"
           />
         </div>
