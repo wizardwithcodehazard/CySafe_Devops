@@ -105,7 +105,16 @@ pipeline {
     post {
         always {
             script {
+                // Archive artifacts first
                 archiveArtifacts artifacts: 'trivy-report.html, trivy-report.json, ai-advice.txt', fingerprint: true, allowEmptyArchive: true
+
+                // --- DISCORD NOTIFICATION ---
+                withCredentials([string(credentialsId: 'discord-webhook-url', variable: 'DISCORD_WEBHOOK')]) {
+                    // Pass the Build Status as an environment variable
+                    withEnv(["BUILD_STATUS=${currentBuild.currentResult}"]) {
+                         bat "node discord-notify.js"
+                    }
+                }
 
                 def toEmail = "sahilrane249@gmail.com" 
                 
