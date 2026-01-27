@@ -13,19 +13,27 @@ async function analyze() {
     const rawData = fs.readFileSync(REPORT_FILE, 'utf8');
     const report = JSON.parse(rawData);
 
-    // 1. Extract Richer Data (Includes Versions)
+    // 1. Extract Data
     let vulnerabilities = [];
+    let severityCounts = { HIGH: 0, CRITICAL: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
+
     if (report.Results) {
         report.Results.forEach(res => {
             if (res.Vulnerabilities) {
                 res.Vulnerabilities.forEach(vuln => {
+                    // Count severities for the summary table
+                    if (severityCounts[vuln.Severity] !== undefined) {
+                        severityCounts[vuln.Severity]++;
+                    }
+
                     vulnerabilities.push({
                         id: vuln.VulnerabilityID,
                         pkg: vuln.PkgName,
                         installed: vuln.InstalledVersion,
-                        fixed: vuln.FixedVersion, // AI needs this to tell you what to upgrade to
+                        fixed: vuln.FixedVersion || 'None',
                         severity: vuln.Severity,
-                        title: vuln.Title
+                        title: vuln.Title,
+                        desc: vuln.Description // We send the description now for better context
                     });
                 });
             }
@@ -33,29 +41,42 @@ async function analyze() {
     }
 
     if (vulnerabilities.length === 0) {
-        fs.writeFileSync('ai-advice.txt', "✅ No vulnerabilities found. Great job!");
+        fs.writeFileSync('ai-advice.txt', "<h2 style='color:green'>✅ System Secure: No Vulnerabilities Found</h2>");
         return;
     }
 
-    // 2. The "Pro" Prompt
+    // 2. The "Deep Dive" Prompt
     const prompt = `
-  You are a Lead DevSecOps Engineer. I have run a Trivy scan on my Docker image and found vulnerabilities.
+  You are a Senior Security Researcher conducting a Deep-Dive Forensic Audit on a Docker container.
   
-  RAW DATA (Top 10 issues):
-  ${JSON.stringify(vulnerabilities.slice(0, 10))}
+  VULNERABILITY STATS: ${JSON.stringify(severityCounts)}
+  RAW THREAT DATA (Top 10): ${JSON.stringify(vulnerabilities.slice(0, 10))}
 
-  Please generate a Detailed Security Assessment in **clean HTML format** suitable for an email. 
-  Use inline CSS for styling (e.g., <span style="color:red"> for critical issues).
+  Generate a **Comprehensive Security Report** in strict HTML format.
   
-  Structure:
-  1. <h2>🚨 Executive Summary</h2> (1 sentence risk assessment)
-  2. <h2>🔍 Top Threats Analysis</h2> (Top 3 issues. Use <ul> and <li>. Use <b> for bolding.)
-  3. <h2>🛠 Remediation Commands</h2> (Use <pre style="background:#f4f4f4; padding:10px;"><code> for code blocks)
+  Structure & Style Requirements:
+  1. **Executive Summary**: 
+     - Create an HTML Table (<table style="border-collapse: collapse; width: 100%;">) showing the count of High, Critical, Medium, and Low issues.
+     - Write a detailed paragraph analyzing the overall security posture (e.g., "The image is susceptible to privilege escalation...").
   
-  Do NOT use Markdown (no ### or **). Return ONLY the HTML body.
+  2. **Technical Deep Dive (Top 3 Threats)**:
+     - For each major vulnerability, provide:
+       - <h3>[Severity Color] CVE-ID: Package Name</h3>
+       - <b>Attack Vector:</b> (Explain exactly how a hacker would exploit this. Be technical.)
+       - <b>Impact Analysis:</b> (What happens if exploited? RCE? Data Exfiltration? DoS?)
+       - <b>Technical Description:</b> (Briefly explain the underlying bug, e.g., buffer overflow in function X).
+  
+  3. **Mitigation Strategy**:
+     - Provide specific <pre> blocks with upgrade commands.
+     - Explain *why* the upgrade fixes the issue (e.g., "Version X.X patches the memory leak").
+
+  Style Guide:
+  - Use bright colors for severity (Red for Critical, Orange for High).
+  - Use professional fonts (Arial/sans-serif).
+  - Do NOT use Markdown. Only clean HTML.
   `;
 
-    // 3. Call Groq API
+    // 3. Call Groq API (High Intelligence Model)
     try {
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
@@ -66,19 +87,19 @@ async function analyze() {
             body: JSON.stringify({
                 model: "llama-3.3-70b-versatile",
                 messages: [{ role: "user", content: prompt }],
-                temperature: 0.3 // Lower temperature = more factual/precise
+                temperature: 0.2 // Low temp for maximum technical accuracy
             })
         });
 
         const data = await response.json();
         const aiAdvice = data.choices[0].message.content;
 
-        console.log("AI Analysis Complete.");
+        console.log("AI Deep Analysis Complete.");
         fs.writeFileSync('ai-advice.txt', aiAdvice);
 
     } catch (error) {
         console.error("Error calling AI:", error);
-        fs.writeFileSync('ai-advice.txt', "❌ AI Analysis Failed: " + error.message);
+        fs.writeFileSync('ai-advice.txt', `<h3 style="color:red">AI Analysis Failed</h3><p>${error.message}</p>`);
     }
 }
 
