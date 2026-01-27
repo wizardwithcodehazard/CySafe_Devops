@@ -24,7 +24,11 @@ export default function ScamSimulator() {
   };
 
   useEffect(() => {
-    if (step && step.role === 'Scammer') runScript(step);
+    if (step && step.role === 'Scammer') {
+      // Use setTimeout to avoid synchronous state update warning
+      const timer = setTimeout(() => runScript(step), 0);
+      return () => clearTimeout(timer);
+    }
   }, [step]);
 
   useEffect(() => {
