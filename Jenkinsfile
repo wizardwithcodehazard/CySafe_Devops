@@ -47,7 +47,6 @@ pipeline {
             steps {
                 script {
                     def scannerHome = tool 'SonarScanner' 
-                    // Make sure this name ('SonarQube') matches your Jenkins System configuration!
                     withSonarQubeEnv('SonarQube') {
                         bat "\"${scannerHome}\\bin\\sonar-scanner.bat\""
                     }
@@ -61,37 +60,43 @@ pipeline {
             }
         }
 
-        // --- NEW STAGE: BUILD DOCKER IMAGE ---
         stage('Build Docker Image') {
             steps {
                 script {
                     echo 'Building Docker Image...'
-                    // Build the image using the variables defined at the top
                     bat "docker build -t %IMAGE_NAME%:%IMAGE_TAG% ."
-                    
-                    // Also tag it as 'latest' for the scanner
                     bat "docker tag %IMAGE_NAME%:%IMAGE_TAG% %IMAGE_NAME%:latest"
                 }
             }
         }
 
-        // --- NEW STAGE: SECURITY SCAN ---
         stage('Trivy Security Scan') {
             steps {
                 script {
                     echo 'Scanning Docker Image...'
-                    // 1. Download the HTML template for the report (Windows compatible)
+                    // 1. Download Template
                     bat "curl -L -o html.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl"
 
-                    // 2. Generate the HTML Report (Does not fail build yet)
-                    // We use 'call' to ensure it continues even if vulnerabilities are found
+                    // 2. HTML Report
                     bat "trivy image --format template --template \"@html.tpl\" -o trivy-report.html %IMAGE_NAME%:latest"
                     
-                    // 3. Generate JSON Report (for import later)
+                    // 3. JSON Report (Required for AI Analysis)
                     bat "trivy image --format json -o trivy-report.json %IMAGE_NAME%:latest"
 
-                    // 4. Run the "Pass/Fail" check (Fails build on CRITICAL)
+                    // 4. Pass/Fail Check
                     bat "trivy image --exit-code 1 --severity CRITICAL %IMAGE_NAME%:latest"
+                }
+            }
+        }
+
+        stage('AI Analysis') {
+            steps {
+                // Ensure you added 'groq-api-key' in Jenkins Credentials!
+                withCredentials([string(credentialsId: 'groq-api-key', variable: 'GROQ_API_KEY')]) {
+                    script {
+                        echo 'Asking Groq AI to analyze reports...'
+                        bat "node ai-analyst.js"
+                    }
                 }
             }
         }
@@ -100,10 +105,16 @@ pipeline {
     post {
         always {
             script {
-                // Archive the reports so they appear on the Build page
-                archiveArtifacts artifacts: 'trivy-report.html, trivy-report.json', fingerprint: true
-                
+                // Archive reports and the AI text file
+                archiveArtifacts artifacts: 'trivy-report.html, trivy-report.json, ai-advice.txt', fingerprint: true, allowEmptyArchive: true
+
                 def toEmail = "sahilrane249@gmail.com" 
+                
+                // --- READ AI ADVICE ---
+                def aiMessage = "No AI analysis generated (No vulnerabilities found or script failed)."
+                if (fileExists('ai-advice.txt')) {
+                    aiMessage = readFile('ai-advice.txt')
+                }
                 
                 try {
                     mail to: toEmail,
@@ -112,9 +123,14 @@ pipeline {
                             Build Status: ${currentBuild.currentResult}
                             Job: ${env.JOB_NAME}
                             Build Number: ${env.BUILD_NUMBER}
-                            
                             Docker Image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}
                             
+                            ------------------------------------------
+                            🤖 AI SECURITY ADVICE (GROQ)
+                            ------------------------------------------
+                            ${aiMessage}
+                            
+                            ------------------------------------------
                             Check console output at: ${env.BUILD_URL}
                          """
                 } catch (Exception e) {
