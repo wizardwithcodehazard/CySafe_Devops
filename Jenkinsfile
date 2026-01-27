@@ -40,7 +40,7 @@ pipeline {
             steps {
                 script {
                     def scannerHome = tool 'SonarScanner' 
-                    withSonarQubeEnv('SonarServer') {
+                    withSonarQubeEnv('SonarQube') {
                         // CHANGED: Pointing to the .bat file and using backslashes for Windows
                         bat "\"${scannerHome}\\bin\\sonar-scanner.bat\""
                     }
