@@ -44,22 +44,15 @@ async function analyze() {
   RAW DATA (Top 10 issues):
   ${JSON.stringify(vulnerabilities.slice(0, 10))}
 
-  Please generate a Detailed Security Assessment with this exact structure:
-
-  ### 🚨 EXECUTIVE SUMMARY
-  (1 sentence on overall risk level: Low/Medium/Critical)
-
-  ### 🔍 TOP THREATS ANALYSIS
-  (Select the 3 most dangerous issues. For each one, explain:)
-  * **[CVE-ID] Package Name**
-    * *Issue:* (Brief technical explanation)
-    * *Impact:* (What can an attacker do? e.g., RCE, DoS)
-    * *Fix:* Upgrade from ${vulnerabilities[0]?.installed || 'x'} to ${vulnerabilities[0]?.fixed || 'patched version'}.
-
-  ### 🛠 REMEDIATION COMMANDS
-  (Provide exact commands I can put in my Dockerfile or terminal to fix these, e.g., 'apt-get install...')
+  Please generate a Detailed Security Assessment in **clean HTML format** suitable for an email. 
+  Use inline CSS for styling (e.g., <span style="color:red"> for critical issues).
   
-  Be precise, technical, and actionable.
+  Structure:
+  1. <h2>🚨 Executive Summary</h2> (1 sentence risk assessment)
+  2. <h2>🔍 Top Threats Analysis</h2> (Top 3 issues. Use <ul> and <li>. Use <b> for bolding.)
+  3. <h2>🛠 Remediation Commands</h2> (Use <pre style="background:#f4f4f4; padding:10px;"><code> for code blocks)
+  
+  Do NOT use Markdown (no ### or **). Return ONLY the HTML body.
   `;
 
     // 3. Call Groq API
