@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    triggers {
+        githubPush()
+    }
+
     tools {
         nodejs 'Node 20' 
     }
@@ -54,4 +58,27 @@ pipeline {
             }
         }
     }
+
+    post {
+        always {
+            script {
+                // Change this email address to your own
+                def toEmail = "sahil@example.com" 
+                
+                mail to: toEmail,
+                     subject: "Jenkins Build ${currentBuild.currentResult}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                     body: """
+                        Build Status: ${currentBuild.currentResult}
+                        Job: ${env.JOB_NAME}
+                        Build Number: ${env.BUILD_NUMBER}
+                        Check console output at: ${env.BUILD_URL}
+                     """
+            }
+        }
+        failure {
+            // Optional: Send a specific alert only if it fails
+            echo 'Build failed. Email sent.'
+        }
+    }
+}
 }
