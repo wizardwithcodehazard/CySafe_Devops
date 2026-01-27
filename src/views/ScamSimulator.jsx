@@ -25,7 +25,6 @@ export default function ScamSimulator() {
 
   useEffect(() => {
     if (step && step.role === 'Scammer') runScript(step);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
   useEffect(() => {

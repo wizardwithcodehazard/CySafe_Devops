@@ -1,5 +1,6 @@
 import React from 'react';
 
+// eslint-disable-next-line no-unused-vars
 export default function ResultItem({ icon: Icon, text }) {
   return (
     <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/5 rounded-xl border border-red-100 dark:border-red-900/20">
