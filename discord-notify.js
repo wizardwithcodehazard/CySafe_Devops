@@ -5,7 +5,7 @@ const WEBHOOK_URL = process.env.DISCORD_WEBHOOK;
 const BUILD_URL = process.env.BUILD_URL;
 const JOB_NAME = process.env.JOB_NAME;
 const BUILD_NUMBER = process.env.BUILD_NUMBER;
-const STATUS = process.env.BUILD_STATUS; // We will pass this from Jenkins
+const STATUS = process.env.BUILD_STATUS;
 
 async function sendNotification() {
     if (!WEBHOOK_URL) {
@@ -13,19 +13,39 @@ async function sendNotification() {
         return;
     }
 
-    // 1. Read AI Advice (if it exists)
+    // 1. Read AI Advice
     let aiSummary = "No AI analysis available.";
     if (fs.existsSync('ai-advice.txt')) {
-        // Read only the first 1000 chars to fit Discord limits
-        aiSummary = fs.readFileSync('ai-advice.txt', 'utf8').substring(0, 1000) + "...";
-        // Strip HTML tags for Discord (simple regex)
-        aiSummary = aiSummary.replace(/<[^>]*>?/gm, '');
+        let rawHtml = fs.readFileSync('ai-advice.txt', 'utf8');
+
+        // --- CLEANING LOGIC START ---
+
+        // A. Remove the entire <style>...</style> block (The CSS Code)
+        rawHtml = rawHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+
+        // B. Replace HTML structure with Discord-friendly newlines
+        rawHtml = rawHtml.replace(/<\/h[1-6]>/gi, '\n**'); // Bold headers
+        rawHtml = rawHtml.replace(/<h[1-6]>/gi, '**');
+        rawHtml = rawHtml.replace(/<\/tr>/gi, '\n');       // New line for table rows
+        rawHtml = rawHtml.replace(/<\/p>/gi, '\n\n');      // Double line for paragraphs
+        rawHtml = rawHtml.replace(/<br\s*\/?>/gi, '\n');   // Line breaks
+
+        // C. Strip all remaining HTML tags
+        aiSummary = rawHtml.replace(/<[^>]+>/g, '');
+
+        // D. Clean up extra white space caused by stripping tags
+        aiSummary = aiSummary.replace(/\n\s+\n/g, '\n\n').trim();
+
+        // --- CLEANING LOGIC END ---
+
+        // Truncate to 1000 chars to fit Discord's limit
+        if (aiSummary.length > 1000) {
+            aiSummary = aiSummary.substring(0, 997) + "...";
+        }
     }
 
-    // 2. Set Color (Green for Success, Red for Failure)
     const color = STATUS === 'SUCCESS' ? 5763719 : 15548997; // Green : Red
 
-    // 3. Construct Payload
     const payload = {
         embeds: [{
             title: `🚀 Build ${STATUS}: ${JOB_NAME} #${BUILD_NUMBER}`,
@@ -34,7 +54,7 @@ async function sendNotification() {
             fields: [
                 {
                     name: "🔍 AI Security Summary",
-                    value: aiSummary
+                    value: aiSummary || "No summary available."
                 }
             ],
             footer: {
@@ -44,7 +64,6 @@ async function sendNotification() {
         }]
     };
 
-    // 4. Send to Discord
     try {
         await fetch(WEBHOOK_URL, {
             method: 'POST',
