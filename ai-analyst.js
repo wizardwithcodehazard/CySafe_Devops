@@ -1,4 +1,4 @@
-// ai-analyst.js
+/* eslint-disable no-undef */
 import fs from 'fs';
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
