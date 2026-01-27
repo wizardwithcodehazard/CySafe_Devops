@@ -2,74 +2,60 @@ pipeline {
     agent any
 
     tools {
-        // This must match the name you gave in Global Tool Configuration
+        // ERROR 1 FIX: Ensure the name in Manage Jenkins -> Tools -> NodeJS is EXACTLY "Node 20"
         nodejs 'Node 20' 
     }
 
     environment {
-        // This helps avoid path issues with npm
+        // This puts the Node bin in your path so 'npm' commands work anywhere
         PATH = "${tool 'Node 20'}/bin:${env.PATH}"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Jenkins automatically checks out code from Git here
                 checkout scm
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                echo 'Installing NPM dependencies...'
-                // 'npm ci' is faster/cleaner for CI than 'npm install'
                 sh 'npm ci' 
             }
         }
 
         stage('Lint Code') {
             steps {
-                echo 'Checking code quality...'
-                // Fails the build if your code has syntax errors
+                // Returns 0 if lint passes, non-zero if it fails
                 sh 'npm run lint'
             }
         }
 
         stage('Unit Tests') {
             steps {
-                echo 'Running Vitest...'
-                // Fails if logic is broken
                 sh 'npm run test'
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                echo 'Scanning with SonarQube...'
-                withSonarQubeEnv('SonarServer') { // Must match System config name
-                    // Ensure the tool name matches Global Tool Config
-                    def scannerHome = tool 'SonarScanner'
-                    sh "${scannerHome}/bin/sonar-scanner"
+                // ERROR 2 FIX: Wrapped in 'script' block to allow variable definition
+                script {
+                    // This fetches the path where SonarScanner is installed
+                    def scannerHome = tool 'SonarScanner' 
+                    
+                    withSonarQubeEnv('SonarServer') {
+                        // Uses the variable we just defined
+                        sh "${scannerHome}/bin/sonar-scanner"
+                    }
                 }
             }
         }
 
         stage('Build Application') {
             steps {
-                echo 'Building production artifact...'
                 sh 'npm run build'
             }
-        }
-    }
-
-    post {
-        success {
-            echo 'Pipeline successfully completed!'
-            // Archive the 'dist' folder so you can download it from Jenkins
-            archiveArtifacts artifacts: 'dist/**/*', fingerprint: true
-        }
-        failure {
-            echo 'Pipeline failed. Please check logs.'
         }
     }
 }
