@@ -8,40 +8,36 @@ const BUILD_NUMBER = process.env.BUILD_NUMBER;
 const STATUS = process.env.BUILD_STATUS;
 
 async function sendNotification() {
-    if (!WEBHOOK_URL) {
-        console.log("No Discord Webhook URL found. Skipping.");
-        return;
-    }
+    if (!WEBHOOK_URL) return;
 
-    // 1. Read AI Advice
     let aiSummary = "No AI analysis available.";
+
     if (fs.existsSync('ai-advice.txt')) {
         let rawHtml = fs.readFileSync('ai-advice.txt', 'utf8');
 
-        // --- CLEANING LOGIC START ---
-
-        // A. Remove the entire <style>...</style> block (The CSS Code)
+        // 1. Remove CSS
         rawHtml = rawHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
 
-        // B. Replace HTML structure with Discord-friendly newlines
-        rawHtml = rawHtml.replace(/<\/h[1-6]>/gi, '\n**'); // Bold headers
-        rawHtml = rawHtml.replace(/<h[1-6]>/gi, '**');
-        rawHtml = rawHtml.replace(/<\/tr>/gi, '\n');       // New line for table rows
-        rawHtml = rawHtml.replace(/<\/p>/gi, '\n\n');      // Double line for paragraphs
-        rawHtml = rawHtml.replace(/<br\s*\/?>/gi, '\n');   // Line breaks
+        // 2. INTELLIGENT CUT: Keep ONLY the "Executive Summary"
+        // Stop reading when the "Technical Deep Dive" section starts
+        let summaryOnly = rawHtml.split(/Technical Deep Dive|Top Threats/i)[0];
 
-        // C. Strip all remaining HTML tags
-        aiSummary = rawHtml.replace(/<[^>]+>/g, '');
+        // 3. TABLE FIX: Format the "Severity Count" table nicely
+        // Converts "</td><td>" to ": " (e.g., "High: 0")
+        summaryOnly = summaryOnly.replace(/<\/td>\s*<td[^>]*>/gi, ': ');
+        // Converts "</tr>" to new line
+        summaryOnly = summaryOnly.replace(/<\/tr>/gi, '\n');
 
-        // D. Clean up extra white space caused by stripping tags
-        aiSummary = aiSummary.replace(/\n\s+\n/g, '\n\n').trim();
+        // 4. CLEANUP: Handle headers and strip tags
+        summaryOnly = summaryOnly.replace(/<h[1-6]>/gi, '\n**'); // Bold headers
+        summaryOnly = summaryOnly.replace(/<\/h[1-6]>/gi, '**\n');
 
-        // --- CLEANING LOGIC END ---
+        // Strip all remaining HTML tags
+        let cleanText = summaryOnly.replace(/<[^>]+>/g, '');
 
-        // Truncate to 1000 chars to fit Discord's limit
-        if (aiSummary.length > 1000) {
-            aiSummary = aiSummary.substring(0, 997) + "...";
-        }
+        // 5. POLISH: Remove extra blank lines and add footer
+        aiSummary = cleanText.replace(/\n\s*\n/g, '\n').trim();
+        aiSummary += "\n\n👉 *See email for full technical report.*";
     }
 
     const color = STATUS === 'SUCCESS' ? 5763719 : 15548997; // Green : Red
@@ -53,13 +49,11 @@ async function sendNotification() {
             color: color,
             fields: [
                 {
-                    name: "🔍 AI Security Summary",
-                    value: aiSummary || "No summary available."
+                    name: "🔍 AI Security Snapshot",
+                    value: aiSummary
                 }
             ],
-            footer: {
-                text: "Jenkins CI/CD • CyberSafe Pipeline"
-            },
+            footer: { text: "Jenkins CI/CD • CyberSafe Pipeline" },
             timestamp: new Date().toISOString()
         }]
     };
