@@ -2,13 +2,12 @@ pipeline {
     agent any
 
     tools {
-        // ERROR 1 FIX: Ensure the name in Manage Jenkins -> Tools -> NodeJS is EXACTLY "Node 20"
         nodejs 'Node 20' 
     }
 
     environment {
-        // This puts the Node bin in your path so 'npm' commands work anywhere
-        PATH = "${tool 'Node 20'}/bin:${env.PATH}"
+        // Ensure npm is available in the path
+        PATH = "${tool 'Node 20'}/bin;${env.PATH}"
     }
 
     stages {
@@ -20,33 +19,30 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm ci' 
+                // CHANGED: 'sh' -> 'bat'
+                bat 'npm ci' 
             }
         }
 
         stage('Lint Code') {
             steps {
-                // Returns 0 if lint passes, non-zero if it fails
-                sh 'npm run lint'
+                bat 'npm run lint'
             }
         }
 
         stage('Unit Tests') {
             steps {
-                sh 'npm run test'
+                bat 'npm run test'
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                // ERROR 2 FIX: Wrapped in 'script' block to allow variable definition
                 script {
-                    // This fetches the path where SonarScanner is installed
                     def scannerHome = tool 'SonarScanner' 
-                    
                     withSonarQubeEnv('SonarServer') {
-                        // Uses the variable we just defined
-                        sh "${scannerHome}/bin/sonar-scanner"
+                        // CHANGED: Pointing to the .bat file and using backslashes for Windows
+                        bat "\"${scannerHome}\\bin\\sonar-scanner.bat\""
                     }
                 }
             }
@@ -54,7 +50,7 @@ pipeline {
 
         stage('Build Application') {
             steps {
-                sh 'npm run build'
+                bat 'npm run build'
             }
         }
     }
