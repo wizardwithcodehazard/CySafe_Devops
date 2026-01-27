@@ -79,11 +79,19 @@ pipeline {
         stage('Trivy Security Scan') {
             steps {
                 script {
-                    echo 'Scanning Docker Image for Vulnerabilities...'
-                    // Scans the 'latest' image. 
-                    // --exit-code 1 means "Fail the build if vulnerabilities found"
-                    // --severity HIGH,CRITICAL means "Only look for the worst issues"
-                    bat "trivy image --exit-code 1 --severity HIGH,CRITICAL %IMAGE_NAME%:latest"
+                    echo 'Scanning Docker Image...'
+                    // 1. Download the HTML template for the report (Windows compatible)
+                    bat "curl -L -o html.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl"
+
+                    // 2. Generate the HTML Report (Does not fail build yet)
+                    // We use 'call' to ensure it continues even if vulnerabilities are found
+                    bat "trivy image --format template --template \"@html.tpl\" -o trivy-report.html %IMAGE_NAME%:latest"
+                    
+                    // 3. Generate JSON Report (for import later)
+                    bat "trivy image --format json -o trivy-report.json %IMAGE_NAME%:latest"
+
+                    // 4. Run the "Pass/Fail" check (Fails build on CRITICAL)
+                    bat "trivy image --exit-code 1 --severity CRITICAL %IMAGE_NAME%:latest"
                 }
             }
         }
@@ -92,6 +100,9 @@ pipeline {
     post {
         always {
             script {
+                // Archive the reports so they appear on the Build page
+                archiveArtifacts artifacts: 'trivy-report.html, trivy-report.json', fingerprint: true
+                
                 def toEmail = "sahilrane249@gmail.com" 
                 
                 try {
