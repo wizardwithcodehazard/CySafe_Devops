@@ -12,6 +12,10 @@ pipeline {
     environment {
         // Ensure npm is available in the path
         PATH = "${tool 'Node 20'}/bin;${env.PATH}"
+        
+        // Define Docker image details
+        IMAGE_NAME = "cybersafe-app"
+        IMAGE_TAG = "v${env.BUILD_NUMBER}"
     }
 
     stages {
@@ -23,7 +27,6 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                // CHANGED: 'sh' -> 'bat'
                 bat 'npm ci' 
             }
         }
@@ -44,8 +47,8 @@ pipeline {
             steps {
                 script {
                     def scannerHome = tool 'SonarScanner' 
+                    // Make sure this name ('SonarQube') matches your Jenkins System configuration!
                     withSonarQubeEnv('SonarQube') {
-                        // CHANGED: Pointing to the .bat file and using backslashes for Windows
                         bat "\"${scannerHome}\\bin\\sonar-scanner.bat\""
                     }
                 }
@@ -57,26 +60,58 @@ pipeline {
                 bat 'npm run build'
             }
         }
+
+        // --- NEW STAGE: BUILD DOCKER IMAGE ---
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    echo 'Building Docker Image...'
+                    // Build the image using the variables defined at the top
+                    bat "docker build -t %IMAGE_NAME%:%IMAGE_TAG% ."
+                    
+                    // Also tag it as 'latest' for the scanner
+                    bat "docker tag %IMAGE_NAME%:%IMAGE_TAG% %IMAGE_NAME%:latest"
+                }
+            }
+        }
+
+        // --- NEW STAGE: SECURITY SCAN ---
+        stage('Trivy Security Scan') {
+            steps {
+                script {
+                    echo 'Scanning Docker Image for Vulnerabilities...'
+                    // Scans the 'latest' image. 
+                    // --exit-code 1 means "Fail the build if vulnerabilities found"
+                    // --severity HIGH,CRITICAL means "Only look for the worst issues"
+                    bat "trivy image --exit-code 1 --severity HIGH,CRITICAL %IMAGE_NAME%:latest"
+                }
+            }
+        }
     }
 
     post {
         always {
             script {
-                // Change this email address to your own
                 def toEmail = "sahilrane249@gmail.com" 
                 
-                mail to: toEmail,
-                     subject: "Jenkins Build ${currentBuild.currentResult}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                     body: """
-                        Build Status: ${currentBuild.currentResult}
-                        Job: ${env.JOB_NAME}
-                        Build Number: ${env.BUILD_NUMBER}
-                        Check console output at: ${env.BUILD_URL}
-                     """
+                try {
+                    mail to: toEmail,
+                         subject: "Jenkins Build ${currentBuild.currentResult}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                         body: """
+                            Build Status: ${currentBuild.currentResult}
+                            Job: ${env.JOB_NAME}
+                            Build Number: ${env.BUILD_NUMBER}
+                            
+                            Docker Image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}
+                            
+                            Check console output at: ${env.BUILD_URL}
+                         """
+                } catch (Exception e) {
+                    echo "Failed to send email: ${e.message}"
+                }
             }
         }
         failure {
-            // Optional: Send a specific alert only if it fails
             echo 'Build failed. Email sent.'
         }
     }
