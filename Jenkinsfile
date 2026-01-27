@@ -105,34 +105,38 @@ pipeline {
     post {
         always {
             script {
-                // Archive reports and the AI text file
+                // Archive the artifacts
                 archiveArtifacts artifacts: 'trivy-report.html, trivy-report.json, ai-advice.txt', fingerprint: true, allowEmptyArchive: true
 
                 def toEmail = "sahilrane249@gmail.com" 
                 
-                // --- READ AI ADVICE ---
-                def aiMessage = "No AI analysis generated (No vulnerabilities found or script failed)."
+                // 1. Fix Encoding: Read as UTF-8 to support Emojis
+                def aiMessage = "No AI analysis generated."
                 if (fileExists('ai-advice.txt')) {
-                    aiMessage = readFile('ai-advice.txt')
+                    aiMessage = readFile(file: 'ai-advice.txt', encoding: 'UTF-8')
                 }
                 
                 try {
+                    // 2. Fix Formatting: Use .stripIndent() to remove the huge gap on the left
+                    def emailBody = """
+                        Build Status: ${currentBuild.currentResult}
+                        Job: ${env.JOB_NAME}
+                        Build Number: ${env.BUILD_NUMBER}
+                        Docker Image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}
+                        
+                        ------------------------------------------
+                        AI SECURITY ADVICE (GROQ)
+                        ------------------------------------------
+                        ${aiMessage}
+                        
+                        ------------------------------------------
+                        Check console output at: ${env.BUILD_URL}
+                    """.stripIndent()
+
                     mail to: toEmail,
                          subject: "Jenkins Build ${currentBuild.currentResult}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                         body: """
-                            Build Status: ${currentBuild.currentResult}
-                            Job: ${env.JOB_NAME}
-                            Build Number: ${env.BUILD_NUMBER}
-                            Docker Image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}
-                            
-                            ------------------------------------------
-                            🤖 AI SECURITY ADVICE (GROQ)
-                            ------------------------------------------
-                            ${aiMessage}
-                            
-                            ------------------------------------------
-                            Check console output at: ${env.BUILD_URL}
-                         """
+                         body: emailBody,
+                         charset: 'UTF-8' // Ensure email sends as UTF-8
                 } catch (Exception e) {
                     echo "Failed to send email: ${e.message}"
                 }
