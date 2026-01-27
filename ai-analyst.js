@@ -6,15 +6,14 @@ const REPORT_FILE = 'trivy-report.json';
 
 async function analyze() {
     if (!fs.existsSync(REPORT_FILE)) {
-        console.log("No security report found to analyze.");
+        console.log("No security report found.");
         return;
     }
 
-    // 1. Read the Trivy JSON report
     const rawData = fs.readFileSync(REPORT_FILE, 'utf8');
     const report = JSON.parse(rawData);
 
-    // 2. Extract only meaningful data (to save tokens)
+    // 1. Extract Richer Data (Includes Versions)
     let vulnerabilities = [];
     if (report.Results) {
         report.Results.forEach(res => {
@@ -23,6 +22,8 @@ async function analyze() {
                     vulnerabilities.push({
                         id: vuln.VulnerabilityID,
                         pkg: vuln.PkgName,
+                        installed: vuln.InstalledVersion,
+                        fixed: vuln.FixedVersion, // AI needs this to tell you what to upgrade to
                         severity: vuln.Severity,
                         title: vuln.Title
                     });
@@ -32,23 +33,36 @@ async function analyze() {
     }
 
     if (vulnerabilities.length === 0) {
-        console.log("No vulnerabilities found! AI analysis skipped.");
+        fs.writeFileSync('ai-advice.txt', "✅ No vulnerabilities found. Great job!");
         return;
     }
 
-    // 3. Construct the Prompt
+    // 2. The "Pro" Prompt
     const prompt = `
-  You are a Senior DevOps Security Expert. 
-  I have run a security scan on my Docker image and found the following vulnerabilities:
-  ${JSON.stringify(vulnerabilities.slice(0, 10))} 
-  (Note: showing top 10 only)
+  You are a Lead DevSecOps Engineer. I have run a Trivy scan on my Docker image and found vulnerabilities.
+  
+  RAW DATA (Top 10 issues):
+  ${JSON.stringify(vulnerabilities.slice(0, 10))}
 
-  Please provide a summary in simple, non-technical language:
-  1. How dangerous is this?
-  2. What should I do to fix it? (Keep it short and actionable)
+  Please generate a Detailed Security Assessment with this exact structure:
+
+  ### 🚨 EXECUTIVE SUMMARY
+  (1 sentence on overall risk level: Low/Medium/Critical)
+
+  ### 🔍 TOP THREATS ANALYSIS
+  (Select the 3 most dangerous issues. For each one, explain:)
+  * **[CVE-ID] Package Name**
+    * *Issue:* (Brief technical explanation)
+    * *Impact:* (What can an attacker do? e.g., RCE, DoS)
+    * *Fix:* Upgrade from ${vulnerabilities[0]?.installed || 'x'} to ${vulnerabilities[0]?.fixed || 'patched version'}.
+
+  ### 🛠 REMEDIATION COMMANDS
+  (Provide exact commands I can put in my Dockerfile or terminal to fix these, e.g., 'apt-get install...')
+  
+  Be precise, technical, and actionable.
   `;
 
-    // 4. Call Groq API
+    // 3. Call Groq API
     try {
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
@@ -57,23 +71,21 @@ async function analyze() {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "llama-3.3-70b-versatile", // Fast and smart model
-                messages: [{ role: "user", content: prompt }]
+                model: "llama-3.3-70b-versatile",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.3 // Lower temperature = more factual/precise
             })
         });
 
         const data = await response.json();
         const aiAdvice = data.choices[0].message.content;
 
-        console.log("\n--- 🤖 AI SECURITY ANALYSIS ---\n");
-        console.log(aiAdvice);
-        console.log("\n-------------------------------\n");
-
-        // Save advice to file so Jenkins can email it
+        console.log("AI Analysis Complete.");
         fs.writeFileSync('ai-advice.txt', aiAdvice);
 
     } catch (error) {
         console.error("Error calling AI:", error);
+        fs.writeFileSync('ai-advice.txt', "❌ AI Analysis Failed: " + error.message);
     }
 }
 
